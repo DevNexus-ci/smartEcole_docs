@@ -1,0 +1,50 @@
+---
+title: "Boutique, cantine et transport"
+description: "Services annexes à la scolarité"
+---
+
+Toutes les routes ci-dessous requièrent `auth:sanctum` + `etablissement.courant`. La lecture des catalogues (articles, menus, trajets) est ouverte à un large périmètre de rôles ; l'écriture reste réservée aux rôles de gestion.
+
+## Boutique scolaire
+
+| Méthode | Route | Description |
+|---|---|---|
+| CRUD restreint | `/boutique/categories` | Catégories d'articles |
+| CRUD restreint | `/boutique/articles` | Articles de la boutique |
+| CRUD partiel | `/boutique/commandes` | Commandes |
+| `POST` | `/boutique/commandes/{commande}/paiement` | Régler une commande |
+| `GET` | `/boutique/commandes/statistiques` | Statistiques des commandes |
+| CRUD | `/boutique/panier` | Panier (rôle `parent`) |
+
+Modèles associés : `CategorieBoutique`, `BoutiqueArticle` (belongsToMany `Niveau`, avec image), `BoutiqueCommande` (avec lignes et paiements), `BoutiquePanier` (avec lignes).
+
+## Cantine
+
+| Méthode | Route | Description |
+|---|---|---|
+| `apiResource` (create/update/delete) | `/cantine/menus` | Gestion des menus de cantine |
+| `GET` | `/cantine/abonnes` | Liste des abonnés à la cantine |
+| `GET` | `/parents/enfants/{eleve}/cantine/menu-actif` | Menu actif visible par un parent |
+| `GET` | `/parents/enfants/{eleve}/cantine/paiements` | Paiements cantine d'un enfant |
+
+Un `CantineMenu` regroupe plusieurs `CantineMenuJour` (un menu par jour de la semaine).
+
+## Transport
+
+| Méthode | Route | Description |
+|---|---|---|
+| `apiResource` (store/update/destroy) | `/transport-trajets` | Gestion des trajets |
+| `POST` | `/transport-trajets/{trajet}/inscrire` | Inscrire un élève à un trajet |
+| `DELETE` | `/transport-trajets/{trajet}/desinscrire` | Désinscrire un élève |
+| `GET` | `/transport-abonnes` | Liste des abonnés au transport |
+| `GET` | `/parents/enfants/{eleve}/transport` | Transport d'un enfant (vue parent) |
+
+Chaque `TransportTrajet` est rattaché à un `FraisScolaire` (type `transport`), ce qui permet de facturer l'abonnement via le même mécanisme d'échéancier que la scolarité.
+
+## Activités extrascolaires
+
+| Méthode | Route | Description |
+|---|---|---|
+| `apiResource` (store/update/destroy) | `/activites-extrascolaires` | Gestion des activités |
+| Inscription / désinscription élève | `/activites-extrascolaires/{activite}/...` | Même schéma que le transport |
+| `GET` | `/parents/enfants/{eleve}/activites-extrascolaires` | Activités d'un enfant (vue parent) |

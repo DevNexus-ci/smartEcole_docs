@@ -1,0 +1,54 @@
+---
+title: "Paiement mobile money (Jeko)"
+description: "Intégration de la passerelle Jeko : Wave, Orange Money, MTN Money, Moov Money"
+---
+
+Les paiements par mobile money passent par **Jeko**, un agrégateur qui unifie Wave, Orange Money, MTN Money et Moov Money derrière une seule API.
+
+## Abstraction
+
+Le code applicatif ne dépend jamais directement du SDK Jeko : il passe par l'interface `App\Contracts\PaymentGatewayInterface`, implémentée par `App\Services\Payment\JekoPaymentGateway`. Cela permet de remplacer ou d'ajouter un fournisseur de paiement sans modifier les contrôleurs.
+
+```
+PaymentGatewayInterface
+└── JekoPaymentGateway   (Wave / Orange Money / MTN Money / Moov Money)
+```
+
+`App\Services\Payment\PaymentEngine` orchestre le choix de la gateway et la création du paiement ; `App\Services\Payment\RecuPaiementService` génère le reçu (PDF via `laravel-dompdf` + QR code de vérification via `endroid/qr-code`), déclenché par le job `GenererRecuPaiementJob`.
+
+## Configuration
+
+Variables d'environnement (`.env`) :
+
+```bash
+JEKO_API_KEY=
+JEKO_SECRET=
+JEKO_API_KEY_ID=
+```
+
+## Flux de paiement
+
+<Steps>
+  <Step title="Initiation">
+    `POST /api/paiements` crée un paiement avec le statut `en_attente` et déclenche l'appel à l'API Jeko pour initier la transaction mobile money auprès du payeur.
+  </Step>
+  <Step title="Webhook de confirmation">
+    Jeko notifie le backend via `POST /api/paiements/webhook/jeko`, sécurisé par une signature applicative (en-tête `Jeko-Signature`). Le backend met à jour le statut du paiement (`confirme` ou `echoue`) et déclenche la génération du reçu si confirmé.
+  </Step>
+  <Step title="Filet de sécurité">
+    La commande planifiée `paiements:verifier-en-attente` (toutes les 5 minutes) interroge directement Jeko pour les paiements toujours `en_attente`, au cas où le webhook n'arriverait pas, et fait expirer ceux qui ont dépassé le délai attendu.
+  </Step>
+</Steps>
+
+## Reçu de paiement
+
+Chaque paiement confirmé reçoit un `recu_numero` unique. Le reçu PDF est accessible publiquement (sans authentification) via QR code :
+
+```
+GET /api/paiements/{paiement:recu_numero}/recu
+GET /api/paiements/groupes/{groupe}/recu   # pour un paiement groupé
+```
+
+## Paramétrage par établissement
+
+Le modèle `ParametrePaiementMobile` stocke la configuration visuelle et applicative de la passerelle mobile money (logo, etc.), lisible par tous et modifiable uniquement par `super_admin` via `GET/PUT /api/parametres-paiement-mobile`.

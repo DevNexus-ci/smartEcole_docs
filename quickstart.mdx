@@ -1,47 +1,70 @@
 ---
-title: "Quickstart"
-description: "Begin with a guide on the fastest path to a successful outcome"
+title: "Installation"
+description: "Installer et lancer smartEcole_backend en local"
 ---
 
-Describe how someone begins using your product. What is the first thing they need to do? Are there any prerequisites?
+## Prérequis
 
-A quickstart should take someone from zero to using your product. They'll get a quick win and a sense of what they can accomplish.
+- PHP 8.2 ou supérieur, avec les extensions habituelles de Laravel
+- Composer
+- Node.js et npm (pour les assets Vite/Tailwind, minimes côté backend)
+- Une base de données : SQLite (par défaut en local) ou MySQL
 
-## Prerequisites
-
-Before you begin, you must have:
-
-- Requirement one (for example, Node.js 18+, a free account, an API key)
-- Requirement two (for example, a compatible device, a compatible browser, a compatible operating system)
-
-## Get started
+## Installation
 
 <Steps>
-  <Step title="Install">
-    Describe how to install your product or sign up.
-
+  <Step title="Cloner et installer les dépendances">
     ```bash
-    npm install your-package
+    git clone <url-du-depot> smartEcole_backend
+    cd smartEcole_backend
+    composer install
+    npm install
     ```
   </Step>
-  <Step title="Configure">
-    Describe any setup or configuration needed before first use.
+  <Step title="Configurer l'environnement">
+    Copiez le fichier d'exemple puis générez la clé d'application.
 
     ```bash
-    your-cli init
+    cp .env.example .env
+    php artisan key:generate
     ```
+
+    Dans `.env`, les valeurs par défaut utilisent SQLite et les drivers `database` pour le cache, la queue et les sessions — aucune infrastructure externe n'est requise pour démarrer. Renseignez ensuite, selon vos besoins :
+
+    - `SUPER_ADMIN_EMAIL` / `SUPER_ADMIN_PASSWORD` — compte super administrateur créé au seed
+    - `SANCTUM_TOKEN_TTL_DAYS` — durée de vie des tokens API
+    - Les identifiants de la passerelle SMS (Sinexus) et de la passerelle de paiement (Jeko) si vous testez ces intégrations
+    - Les variables `AWS_*` si vous voulez utiliser S3 au lieu du disque public local
   </Step>
-  <Step title="Run it">
-    Show the first thing a user does to see it working.
+  <Step title="Créer la base de données et migrer">
+    Le schéma de référence des tables historiques est stocké dans `database/schema/mysql-schema.sql` (via `php artisan schema:dump`). Les migrations dans `database/migrations/` ne couvrent que les évolutions ultérieures à ce dump.
 
     ```bash
-    your-cli start
+    touch database/database.sqlite   # si vous utilisez SQLite
+    php artisan migrate --seed
     ```
+
+    Le seeder `SuperAdminSeeder` crée le compte administrateur à partir des variables `SUPER_ADMIN_*` de votre `.env`.
+  </Step>
+  <Step title="Lancer l'environnement de développement">
+    Une commande unique lance en parallèle le serveur PHP, le worker de queue, les logs (`pail`) et Vite :
+
+    ```bash
+    composer run dev
+    ```
+
+    L'API est alors disponible sur `http://localhost:8000`.
   </Step>
 </Steps>
 
-<Tip>
-  Give people a way to get help. This could be a link to a support page, a chat with a customer support agent, or a forum for your product.
+## Vérifier que tout fonctionne
 
-  Example: Need help? Reach out to us at [support@yourcompany.com](mailto:support@yourcompany.com).
-</Tip>
+- `GET /status` renvoie l'état JSON des composants surveillés (base de données, cache, storage, queue, SMS, passerelle de paiement).
+- La page web `/status` affiche le même statut sous forme de tableau de bord.
+- La documentation OpenAPI générée par `l5-swagger` est disponible sur `/api/documentation`.
+
+## Authentification pour tester l'API
+
+Connectez-vous via `POST /api/auth/login` (email/mot de passe), puis validez le code OTP envoyé par email avec `POST /api/auth/verify-otp`. La réponse contient un token Sanctum à transmettre dans l'en-tête `Authorization: Bearer <token>` sur les routes protégées. Voir [Authentification](/architecture/authentification) pour le détail du flux, y compris la variante par téléphone/SMS.
+
+Pour les établissements multi-écoles, transmettez l'en-tête `X-Etablissement-Id` afin d'indiquer l'établissement courant sur les routes protégées.

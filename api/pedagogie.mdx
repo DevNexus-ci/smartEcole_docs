@@ -1,0 +1,43 @@
+---
+title: "Pédagogie"
+description: "Évaluations, notes, moyennes, bulletins et devoirs à la maison"
+---
+
+Toutes les routes ci-dessous requièrent `auth:sanctum` + `etablissement.courant`.
+
+## Évaluations et notes
+
+| Méthode | Route | Description |
+|---|---|---|
+| `apiResource` | `/evaluations` | CRUD des évaluations |
+| `POST` | `/evaluations/{evaluation}/notes` | Saisir les notes d'une évaluation |
+| `GET` | `/eleves/{eleve}/notes` | Notes d'un élève |
+| `GET` | `/eleves/{eleve}/moyennes-matieres` | Moyennes par matière d'un élève |
+
+## Moyennes
+
+| Méthode | Route | Description |
+|---|---|---|
+| `POST` | `/moyennes/calculer` | Calculer les moyennes (portée globale) |
+| `POST` | `/classes/{classe}/moyennes/calculer` | Calculer les moyennes d'une classe |
+
+## Bulletins
+
+| Méthode | Route | Description |
+|---|---|---|
+| `POST` | `/classes/{classe}/bulletins/generer` | Générer les bulletins trimestriels d'une classe |
+| `POST` | `/classes/{classe}/bulletins/annuels/generer` | Générer les bulletins annuels d'une classe |
+| `PATCH` | `/bulletins/{bulletin}/valider` | Valider un bulletin (passage brouillon → validé) |
+| `GET` | `/bulletins` | Liste des bulletins |
+| `GET` | `/bulletins/{id}` | Détail d'un bulletin |
+| `GET` | `/bulletins/{id}/pdf` | Export PDF du bulletin |
+
+## Devoirs à la maison
+
+| Méthode | Route | Description |
+|---|---|---|
+| `apiResource` | `/devoirs-maison` | CRUD des devoirs à la maison |
+
+<Info>
+  La génération de bulletin s'appuie sur les modèles `Bulletin` et `BulletinLigne` : chaque bulletin porte les moyennes générale, de classe, la plus forte, la plus faible et par trimestre (T1-T3), le rang, la mention et la décision, en plus du fichier PDF exporté via `barryvdh/laravel-dompdf`.
+</Info>

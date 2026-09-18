@@ -1,0 +1,41 @@
+---
+title: "Finances"
+description: "Frais scolaires, échéanciers, paiements, dépenses, remises et bourses"
+---
+
+Toutes les routes ci-dessous requièrent `auth:sanctum` + `etablissement.courant`.
+
+## Frais scolaires et échéanciers
+
+| Méthode | Route | Description |
+|---|---|---|
+| `apiResource` | `/frais-scolaires` | CRUD des frais scolaires (type : inscription, scolarité, cantine, transport, autre) |
+| `apiResource` | `/echeanciers` | CRUD des échéanciers de paiement |
+| `GET`, `PUT` | `/eleves/{eleve}/frais-optionnels` | Consulter / assigner les frais optionnels d'un élève |
+| `PUT` | `/echeancier-overrides/ajuster` | Ajuster un échéancier pour un élève spécifique |
+| `apiResource` | `/echeancier-overrides` | CRUD des overrides d'échéancier par élève |
+
+## Paiements
+
+| Méthode | Route | Description |
+|---|---|---|
+| `GET` | `/paiements` | Liste des paiements |
+| `POST` | `/paiements` | Enregistrer un paiement (espèces ou déclenchement mobile money) |
+| `POST` | `/paiements/webhook/jeko` *(public)* | Webhook de confirmation Jeko |
+| `GET` | `/paiements/{paiement:recu_numero}/recu` *(public)* | Reçu PDF via QR |
+| `GET` | `/paiements/groupes/{groupe}/recu` *(public)* | Reçu d'un groupe de paiements |
+| `GET` | `/eleves/{eleve}/situation-financiere` | Situation financière consolidée d'un élève |
+
+Modes de paiement supportés (`mode_paiement`) : `especes`, `wave`, `orange_money`, `mtn_money`, `moov_money`, `virement`, `cheque`. Statuts (`statut`) : `en_attente`, `confirme`, `echoue`, `rembourse`.
+
+<Info>
+  Le paiement mobile money passe par la passerelle **Jeko** — voir [Paiement mobile money](/integrations/paiement-mobile-money) pour le détail du flux (initiation, webhook, filet de sécurité `paiements:verifier-en-attente`).
+</Info>
+
+## Dépenses, remises, bourses
+
+| Méthode | Route | Description |
+|---|---|---|
+| `apiResource` | `/depenses` | CRUD des dépenses de l'établissement |
+| `apiResource` | `/remises` | CRUD des remises accordées aux élèves |
+| `apiResource` | `/bourses` | CRUD des bourses accordées aux élèves |

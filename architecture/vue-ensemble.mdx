@@ -1,0 +1,81 @@
+---
+title: "Vue d'ensemble"
+description: "Organisation du code de smartEcole_backend"
+---
+
+Le projet suit l'organisation standard d'une application Laravel, avec une séparation nette entre contrôleurs HTTP (fins), services métier, et modèles Eloquent.
+
+## Arborescence `app/`
+
+```
+app/
+├── Console/Commands/     # Tâches planifiées (scheduler)
+├── Contracts/            # Interfaces (SMS, paiement) pour permuter de fournisseur
+├── Exceptions/           # Exceptions métier dédiées
+├── Http/
+│   ├── Controllers/Api/  # 52 contrôleurs REST, un par ressource
+│   ├── Controllers/Concerns/  # Traits partagés entre contrôleurs
+│   ├── Controllers/StatusPageController.php  # seule route web non-API
+│   └── Middleware/       # CheckRole, SetCurrentEtablissement
+├── Jobs/                 # Traitement asynchrone (annonces, communications, reçus PDF)
+├── Mail/                 # Mailables (annonce, communication, OTP)
+├── Models/               # 55 modèles Eloquent
+├── Providers/            # AppServiceProvider
+├── Services/             # Logique métier (SMS, paiement, présences, statut)
+└── Support/              # Utilitaires (normalisation numéro de téléphone)
+```
+
+Il n'y a volontairement pas de dossiers `Events/`, `Listeners/`, `Policies/` ou `Notifications/` : l'autorisation métier passe entièrement par le middleware `role:` combiné à la logique interne des contrôleurs, et les notifications transitent par les `Jobs`/`Mail` dédiés plutôt que par le système `Notification` de Laravel.
+
+## Commandes planifiées (`app/Console/Commands`)
+
+Ces commandes sont enregistrées dans `routes/console.php` via le scheduler Laravel.
+
+| Commande | Planification | Rôle |
+|---|---|---|
+| `status:check` | toutes les 5 min | Vérifie l'état des composants (DB, cache, storage, queue, SMS, Jeko) pour `/status` |
+| `annonces:envoyer-programmees` | chaque minute | Diffuse les annonces programmées arrivées à échéance |
+| `presences:marquer-absences` | quotidien 00:30 | Clôture la journée : marque absent tout élève sans badge |
+| `paiements:verifier-en-attente` | toutes les 5 min | Filet de sécurité : interroge Jeko si le webhook n'est pas arrivé, expire les paiements en attente |
+| `status:purger-historique` | quotidien 03:15 | Purge l'historique de statut au-delà de la fenêtre configurée |
+
+## Contrats et implémentations interchangeables (`app/Contracts`, `app/Services`)
+
+Le projet isole ses deux dépendances externes critiques derrière une interface, pour pouvoir changer de fournisseur sans toucher aux contrôleurs :
+
+- **`SmsServiceInterface`** → `GatewaySmsService` (passerelle Sinexus réelle, via `SmsGatewayClient` en WebSocket) ou `LogSmsService` (simple log, utile en dev/tests)
+- **`PaymentGatewayInterface`** → `Payment\JekoPaymentGateway` (mobile money Wave/Orange/MTN/Moov via Jeko)
+
+D'autres services encapsulent de la logique métier transverse :
+
+- **`Payment\PaymentEngine`** — orchestration des paiements (sélection de gateway, création des reçus)
+- **`Payment\RecuPaiementService`** — génération des reçus (PDF + QR code)
+- **`PointagePresenceService`** — transforme les badges de pointage en présences/retards
+- **`StatusCheckService`** / **`StatusPageData`** — logique de la page `/status`
+
+## Middlewares applicatifs
+
+| Middleware | Alias | Rôle |
+|---|---|---|
+| `CheckRole` | `role:...` | Vérifie que `user->role` fait partie des rôles autorisés, et que le token Sanctum courant a l'ability correspondante |
+| `SetCurrentEtablissement` | `etablissement.courant` | Détermine l'établissement courant à partir du header `X-Etablissement-Id`, gère le multi-établissement (super admin et utilisateurs rattachés à plusieurs écoles) |
+
+Voir [Authentification et autorisation](/architecture/authentification) pour le détail du flux complet.
+
+## Jobs asynchrones (`app/Jobs`)
+
+| Job | Déclenché par | Rôle |
+|---|---|---|
+| `EnvoyerAnnonceJob` | création/diffusion d'une annonce | Envoi multi-canal (email, SMS) de l'annonce |
+| `EnvoyerCommunicationJob` | création d'une communication ciblée | Envoi aux destinataires sélectionnés |
+| `GenererRecuPaiementJob` | confirmation d'un paiement | Génère le reçu PDF (avec QR de vérification) |
+
+## Points d'attention architecturaux
+
+<Warning>
+  Le relais `zkteco-relay/` (voir [Pointage biométrique](/integrations/pointage-biometrique)) poste vers `POST {BACKEND_URL}/api/pointage/zkteco`, mais cette route n'apparaît pas dans `routes/api.php` — seule la route Hikvision (`/pointage/hikvision/{numero_serie}/{cle}`) y figure actuellement. À clarifier avec l'équipe si cette route a été retirée, déplacée, ou reste à ajouter.
+</Warning>
+
+<Info>
+  Le schéma "de référence" pour les tables historiques (`users`, `eleves`, `classes`, `paiements`, etc.) est `database/schema/mysql-schema.sql`, généré par `php artisan schema:dump`. Ne cherchez pas de migration `create_users_table` — les migrations individuelles ne couvrent que les évolutions postérieures à ce dump. Voir [Base de données](/architecture/base-de-donnees).
+</Info>

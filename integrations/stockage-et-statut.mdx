@@ -1,0 +1,31 @@
+---
+title: "Stockage, monitoring et page de statut"
+description: "S3, Nightwatch et la page /status"
+---
+
+## Stockage de fichiers
+
+En local, le disque `public` (`FILESYSTEM_DISK=public`) sert au stockage des fichiers (photos d'élèves, documents, médias d'événements, PDF). En production (Laravel Cloud), ce disque est **injecté automatiquement par le bucket S3 attaché** — aucune configuration manuelle des identifiants AWS n'est nécessaire dans ce contexte, mais les variables `AWS_*` restent disponibles dans `.env.example` pour un déploiement hors Laravel Cloud.
+
+Package utilisé : `league/flysystem-aws-s3-v3`.
+
+## Observabilité
+
+**Laravel Nightwatch** (`laravel/nightwatch`) est intégré pour le monitoring applicatif (requêtes, jobs, exceptions). Configuration via `NIGHTWATCH_TOKEN` et `config/nightwatch.php`.
+
+## Page de statut (`/status`)
+
+Le module de statut, propre à ce projet, surveille en continu la santé de la plateforme :
+
+- **Commande `status:check`** (toutes les 5 min) — vérifie base de données, cache, stockage, queue, passerelle SMS et passerelle de paiement, via `App\Services\StatusCheckService`.
+- **Commande `status:purger-historique`** (quotidien 03:15) — purge l'historique au-delà de la fenêtre configurée dans `config/status.php`.
+- **Configuration** (`config/status.php`) : composants surveillés, seuils de latence/dégradation, création automatique d'incidents en cas d'instabilité répétée ("flapping"), 90 jours de rétention de l'historique.
+
+### Accès
+
+| Méthode | Route | Description |
+|---|---|---|
+| `GET` | `/api/status` | Statut au format JSON (public) |
+| `GET` | `/status` | Tableau de bord web (`StatusPageController`) |
+
+Les incidents détectés (ou déclarés manuellement) sont stockés dans les tables `incidents` / `incident_updates`, exposées aux rôles `super_admin`/`admin` via `apiResource /api/incidents`.

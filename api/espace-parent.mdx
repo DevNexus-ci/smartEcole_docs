@@ -1,0 +1,31 @@
+---
+title: "Espace parent"
+description: "Endpoints regroupés dédiés au rôle parent"
+---
+
+Ces endpoints (rôle `parent`, `auth:sanctum` + `etablissement.courant`) offrent une vue consolidée, plutôt que de recomposer les données depuis les endpoints administratifs génériques.
+
+| Méthode | Route | Description |
+|---|---|---|
+| `GET` | `/mes-enfants` | Élèves rattachés au parent connecté |
+| `GET` | `/parents/emploi-du-temps` | Emploi du temps consolidé de tous les enfants |
+| `GET` | `/parents/matieres` | Matières suivies par les enfants |
+| `GET` | `/parents/notes` | Notes des enfants |
+| `GET` | `/parents/bulletins` | Bulletins des enfants |
+| `GET` | `/parents/bulletins/{bulletin}/pdf` | Export PDF d'un bulletin |
+| `GET` | `/parents/echeancier` | Échéancier de paiement des enfants |
+| `GET` | `/parents/paiements/{paiement}/recu` | Reçu d'un paiement |
+| `GET` | `/parents/presences` | Présences des enfants |
+| `GET` | `/parents/presences/historique` | Historique de présences |
+| `GET` | `/parents/devoirs-maison` | Devoirs à la maison des enfants |
+| `GET` | `/parents/enfants/{eleve}/infos` | Fiche d'un enfant |
+| `GET` | `/parents/enfants/{eleve}/cantine/menu-actif` | Menu de cantine actif |
+| `GET` | `/parents/enfants/{eleve}/cantine/paiements` | Paiements cantine |
+| `GET` | `/parents/enfants/{eleve}/transport` | Transport de l'enfant |
+| `GET` | `/parents/enfants/{eleve}/activites-extrascolaires` | Activités extrascolaires |
+| `GET` | `/parents/annonces` | Annonces de l'établissement |
+| `PATCH` | `/parents/annonces/{annonce}/lu`, `/parents/annonces/tout-lu` | Marquer comme lu |
+
+<Info>
+  Ces routes filtrent automatiquement les données sur les élèves rattachés au parent authentifié via la table pivot `parents_eleves` — aucun paramètre d'identification du parent n'est nécessaire, il est déduit du token.
+</Info>

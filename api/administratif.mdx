@@ -1,0 +1,65 @@
+---
+title: "Administratif"
+description: "Établissements, utilisateurs, élèves, inscriptions et référentiel pédagogique"
+---
+
+Toutes les routes ci-dessous requièrent `auth:sanctum` + `etablissement.courant`.
+
+## Plateforme et établissements
+
+| Méthode | Route | Rôle requis |
+|---|---|---|
+| `apiResource` | `/etablissements` | Lecture large ; `store` réservé `super_admin` |
+| `apiResource` | `/licences` | `super_admin` |
+| `GET` | `/parametres-paiement-mobile` | Lecture ouverte |
+| `PUT` | `/parametres-paiement-mobile` | `super_admin` |
+| `apiResource` | `/incidents` | `super_admin`, `admin` |
+
+## Utilisateurs
+
+| Méthode | Route | Description |
+|---|---|---|
+| `GET` | `/users` | Liste des utilisateurs |
+| `POST` | `/users` | Créer un utilisateur |
+| `GET` / `PUT` | `/users/{user}` | Consulter / modifier un utilisateur |
+| `DELETE` | `/users/{user}` | Supprimer un utilisateur |
+| `POST` | `/users/{user}/lier-eleve` | Lier un parent à un élève |
+| `DELETE` | `/users/{user}/lier-eleve/{eleve}` | Délier un parent d'un élève |
+| `GET` | `/users/{user}/eleves` | Élèves rattachés à un utilisateur (parent) |
+| `GET` | `/mes-enfants` | Élèves de l'utilisateur connecté (rôle `parent`) |
+| `GET` | `/parents/emploi-du-temps` | Emploi du temps consolidé des enfants d'un parent |
+
+## Élèves
+
+| Méthode | Route | Description |
+|---|---|---|
+| `apiResource` | `/eleves` | CRUD élèves |
+| `GET/POST/PUT/DELETE` | `/eleves/{eleve}/documents` | Documents administratifs d'un élève |
+
+## Inscriptions
+
+| Méthode | Route | Description |
+|---|---|---|
+| `GET`, `POST` | `/inscriptions` | Liste / création d'inscription |
+| `PATCH` | `/inscriptions/{inscription}/valider` | Valider une inscription |
+| `PATCH` | `/inscriptions/{inscription}/annuler` | Annuler une inscription |
+
+## Référentiel pédagogique et infrastructure
+
+| Méthode | Route | Description |
+|---|---|---|
+| `apiResource` | `/classes` | CRUD classes |
+| `GET` | `/classes/{classe}/matieres` | Matières enseignées dans une classe |
+| `apiResource` | `/matieres` | CRUD matières |
+| `apiResource` | `/classe-matieres` | Association classe ↔ matière ↔ enseignant |
+| `apiResource` | `/emplois-du-temps` | CRUD emploi du temps |
+| `apiResource` | `/niveaux` | CRUD niveaux |
+| CRUD | `/niveaux/{niveau}/coefficients` (ou équivalent) | Coefficients par niveau/matière |
+| `apiResource` | `/batiments` | CRUD bâtiments |
+| `apiResource` | `/salles` | CRUD salles |
+| `apiResource` | `/annees-scolaires` | CRUD années scolaires |
+| `apiResource` | `/sessions-scolaires` | CRUD sessions scolaires |
+
+<Note>
+  La lecture des classes, matières, emplois du temps et élèves est ouverte à un périmètre de rôles plus large que l'écriture (typiquement enseignants et personnel administratif), qui reste réservée aux rôles de gestion (`admin`, `directeur`, `secretariat`).
+</Note>

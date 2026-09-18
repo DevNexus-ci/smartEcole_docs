@@ -1,0 +1,64 @@
+---
+title: "Vue d'ensemble de l'API"
+description: "Conventions générales et endpoints publics"
+---
+
+Toutes les routes API sont définies dans `routes/api.php` et préfixées automatiquement par `/api`. La documentation OpenAPI générée par `l5-swagger` est disponible sur `/api/documentation`.
+
+## Conventions
+
+- **Format** : JSON en entrée et en sortie sur toutes les routes `/api/*`.
+- **Authentification** : `Authorization: Bearer <token>` (Sanctum) sur les routes protégées — voir [Authentification](/architecture/authentification).
+- **Multi-établissement** : en-tête `X-Etablissement-Id` sur les routes protégées pour indiquer l'établissement courant.
+- **Erreurs d'authentification** : réponse JSON 401 (pas de redirection HTML).
+
+## Endpoints publics (sans authentification)
+
+| Méthode | Route | Rôle |
+|---|---|---|
+| `POST` | `/auth/login`, `/auth/verify-otp`, `/auth/resend-otp` | Connexion par email + OTP |
+| `POST` | `/auth/login-phone`, `/auth/verify-otp-phone`, `/auth/resend-otp-phone` | Connexion par téléphone + OTP SMS |
+| `POST` | `/auth/register` | Inscription |
+| `POST` | `/paiements/webhook/jeko` | Webhook de confirmation de paiement Jeko (authentifié par signature) |
+| `GET` | `/public/eleves/fiche/{token}` | Fiche élève publique via QR code |
+| `GET` | `/public/eleves/verification-qr/{token}` | Vérification de paiement via QR |
+| `GET` | `/public/frais-scolaires` | Liste des frais scolaires (ex. poste d'accueil, sans connexion) |
+| `GET` | `/paiements/{paiement:recu_numero}/recu` | Reçu de paiement public via QR |
+| `GET` | `/paiements/groupes/{groupe}/recu` | Reçu d'un groupe de paiements |
+| `POST` | `/pointage/hikvision/{numero_serie}/{cle}` | Webhook terminal biométrique Hikvision |
+| `GET` | `/status` | Statut JSON des composants de la plateforme |
+
+<Note>
+  Les endpoints publics `fiche` et `verification-qr` sont soumis à un throttle de 30 requêtes/min.
+</Note>
+
+## Modules protégés
+
+Toutes les routes suivantes exigent `auth:sanctum` + `etablissement.courant`, avec des restrictions de rôle supplémentaires selon la ressource.
+
+<CardGroup cols={2}>
+  <Card title="Administratif" icon="school" href="/api/administratif">
+    Établissements, utilisateurs, élèves, inscriptions, classes, matières, emplois du temps
+  </Card>
+  <Card title="Pédagogie" icon="graduation-cap" href="/api/pedagogie">
+    Évaluations, notes, moyennes, bulletins, devoirs à la maison
+  </Card>
+  <Card title="Finances" icon="money-bill" href="/api/finances">
+    Frais scolaires, échéanciers, paiements, dépenses, remises, bourses
+  </Card>
+  <Card title="Présences" icon="fingerprint" href="/api/presences">
+    Pointage, présences, justifications, validation
+  </Card>
+  <Card title="Communication" icon="bullhorn" href="/api/communication">
+    Communications ciblées, annonces, événements
+  </Card>
+  <Card title="Boutique, cantine, transport" icon="bag-shopping" href="/api/services-annexes">
+    Boutique scolaire, menus de cantine, trajets de transport
+  </Card>
+  <Card title="Espace parent" icon="users" href="/api/espace-parent">
+    Vue consolidée des endpoints dédiés au rôle parent
+  </Card>
+  <Card title="Dashboard" icon="chart-line" href="/api/dashboard">
+    Statistiques consolidées pour le personnel de direction
+  </Card>
+</CardGroup>

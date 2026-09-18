@@ -1,0 +1,60 @@
+---
+title: "Pointage biométrique"
+description: "Terminaux ZKTeco et Hikvision"
+---
+
+Deux voies d'intégration coexistent pour remonter les badges de pointage vers l'API.
+
+## Hikvision (webhook direct)
+
+Le terminal Hikvision pousse directement ses événements vers l'API :
+
+```
+POST /api/pointage/hikvision/{numero_serie}/{cle}
+```
+
+L'authentification se fait par le couple `numero_serie` + `cle` porté dans l'URL, propres à chaque terminal enregistré (table `pointage_appareils`, gérée via `apiResource /pointage/appareils`).
+
+## ZKTeco F18 (relais applicatif)
+
+Le terminal **ZKTeco F18** ne dispose pas d'un mode "push" (protocole ADMS). Le dossier `zkteco-relay/` à la racine du dépôt est un petit projet **Node.js indépendant** qui fait le pont :
+
+```
+zkteco-relay/
+├── index.js
+├── package.json      # dépendances : dotenv, node-zklib
+└── .env.example       # DEVICE_IP, DEVICE_PORT, DEVICE_NUMERO_SERIE, DEVICE_CLE_API, BACKEND_URL, POLL_INTERVAL_SECONDS
+```
+
+Fonctionnement :
+
+1. Le script se connecte au terminal en TCP local (port `4370` par défaut).
+2. Toutes les `POLL_INTERVAL_SECONDS` secondes (30s par défaut), il interroge le terminal (`getAttendances`) pour récupérer les nouveaux badges.
+3. Il suit sa progression via le **numéro de séquence interne** de l'appareil (`userSn`) plutôt que l'horodatage — l'horloge interne du terminal n'étant pas fiable — et persiste cet état dans `relay-state.json` en local.
+4. Il rejoue les nouveaux badges vers le backend :
+
+   ```
+   POST {BACKEND_URL}/api/pointage/zkteco
+   Header: X-Device-Key
+   ```
+
+5. En l'absence de nouveaux badges, il envoie des lots vides en "battement de cœur" pour maintenir à jour `derniere_sync_at` côté backend (utile pour détecter un terminal hors ligne via `/status`).
+
+<Warning>
+  La route `POST /api/pointage/zkteco` attendue par le relais **n'apparaît pas** dans `routes/api.php` actuel — seule la route Hikvision y figure. Avant de déployer ce relais en production, vérifiez avec l'équipe si cette route a été retirée intentionnellement, déplacée, ou reste à implémenter côté Laravel.
+</Warning>
+
+### Déploiement du relais
+
+Le relais tourne comme un processus Node.js séparé, à proximité réseau du terminal (accès TCP local requis) :
+
+```bash
+cd zkteco-relay
+cp .env.example .env
+npm install
+node index.js
+```
+
+## Traitement côté backend
+
+Une fois les badges reçus (par l'une ou l'autre voie), ils sont stockés bruts dans `pointages_eleves`, puis transformés en présences qualifiées par `App\Services\PointagePresenceService`, selon les règles définies dans `config/presences.php` (heure limite, tolérance de retard, intervalle minimal entre deux badges). Voir [Présences et pointage](/api/presences).

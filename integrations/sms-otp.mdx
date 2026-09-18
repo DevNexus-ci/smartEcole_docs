@@ -1,0 +1,39 @@
+---
+title: "SMS et OTP (Sinexus)"
+description: "Passerelle SMS pour l'authentification par téléphone et les communications"
+---
+
+L'envoi de SMS (codes OTP et communications aux parents) passe par une passerelle maison **Sinexus**, jointe via WebSocket.
+
+## Abstraction
+
+```
+SmsServiceInterface
+├── GatewaySmsService   (production — passerelle Sinexus réelle)
+└── LogSmsService       (dev/tests — journalise au lieu d'envoyer)
+```
+
+`GatewaySmsService` s'appuie sur `App\Services\SmsGatewayClient`, un client WebSocket bas niveau (`phrity/websocket`) qui suit le protocole :
+
+```
+hello → welcome → send.request → send.accepted
+```
+
+## Configuration
+
+```bash
+# .env
+# Endpoint WebSocket : wss://sms.sinexus.tech/
+```
+
+En environnement de dev/test, utilisez `LogSmsService` (via le binding de `SmsServiceInterface`) pour éviter d'envoyer de vrais SMS — les codes OTP apparaissent alors dans les logs applicatifs.
+
+## Cas d'usage
+
+1. **OTP de connexion par téléphone** — `POST /api/auth/login-phone` envoie un code via Sinexus, vérifié par `POST /api/auth/verify-otp-phone`.
+2. **Communications ciblées** — le job `EnvoyerCommunicationJob` peut envoyer par SMS en plus de l'email, selon les préférences du destinataire.
+3. **Annonces** — le job `EnvoyerAnnonceJob` diffuse également par SMS si configuré.
+
+## Normalisation des numéros
+
+`App\Support\PhoneNumber` normalise les numéros de téléphone au format E.164 avec un indicatif pays par défaut, garantissant la cohérence des numéros stockés et envoyés à la passerelle.

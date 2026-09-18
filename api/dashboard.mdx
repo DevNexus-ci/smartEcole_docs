@@ -1,0 +1,10 @@
+---
+title: "Dashboard"
+description: "Statistiques consolidées pour le personnel de direction"
+---
+
+| Méthode | Route | Rôle requis |
+|---|---|---|
+| `GET` | `/dashboard` | `super_admin`, `admin`, `directeur`, `comptable` |
+
+Cet endpoint unique agrège les indicateurs clés de l'établissement courant (effectifs, présences, finances, etc.) pour alimenter le tableau de bord de direction. Il respecte le scope multi-établissement posé par le middleware `etablissement.courant`.

@@ -1,0 +1,44 @@
+---
+title: "Communication et événements"
+description: "Communications ciblées, annonces et événements d'établissement"
+---
+
+Toutes les routes ci-dessous requièrent `auth:sanctum` + `etablissement.courant`.
+
+## Communications ciblées
+
+| Méthode | Route | Description |
+|---|---|---|
+| `POST` | `/communications` | Créer une communication |
+| `GET` | `/communications/parents` | Communications visibles par les parents |
+| `GET` | `/communications` | Liste des communications |
+| `GET` | `/moi/communications` | Communications reçues par l'utilisateur connecté |
+| `PATCH` | `/moi/communications/{id}/lu` | Marquer une communication comme lue |
+| `PATCH` | `/moi/communications/tout-lu` | Marquer toutes les communications comme lues |
+
+## Annonces
+
+| Méthode | Route | Description |
+|---|---|---|
+| `GET` | `/annonces` | Liste des annonces |
+| `POST` | `/annonces` | Créer une annonce (avec diffusion immédiate ou programmée) |
+| `PUT` | `/annonces/{annonce}` | Modifier une annonce |
+| `DELETE` | `/annonces/{annonce}` | Supprimer une annonce |
+| `GET` | `/parents/annonces` | Annonces visibles par un parent |
+| `PATCH` | `/parents/annonces/{annonce}/lu` | Marquer une annonce comme lue |
+| `PATCH` | `/parents/annonces/tout-lu` | Marquer toutes les annonces comme lues |
+
+La commande planifiée `annonces:envoyer-programmees` (chaque minute) diffuse automatiquement les annonces dont la date programmée est atteinte, via `EnvoyerAnnonceJob`.
+
+## Événements
+
+| Méthode | Route | Description |
+|---|---|---|
+| `apiResource` | `/evenements` | CRUD des événements d'établissement |
+| `POST` | `/evenements/{evenement}/medias` | Ajouter un média à un événement |
+| `PUT` | `/evenements/{evenement}/medias/{media}` | Modifier un média |
+| `DELETE` | `/evenements/{evenement}/medias/{media}` | Supprimer un média |
+
+<Note>
+  La lecture des événements est ouverte au personnel et aux parents ; l'écriture (création, modification, suppression, gestion des médias) reste réservée aux rôles de gestion.
+</Note>

@@ -1,0 +1,43 @@
+---
+title: "Présences et pointage"
+description: "Pointage biométrique, présences, justifications et validation"
+---
+
+Toutes les routes ci-dessous requièrent `auth:sanctum` + `etablissement.courant`, sauf les webhooks de terminaux.
+
+## Présences élèves
+
+| Méthode | Route | Description |
+|---|---|---|
+| `GET` | `/presences/eleves` | Liste des présences |
+| `GET` | `/presences/eleves/synthese` | Synthèse des présences |
+| `POST` | `/presences/eleves/pointage` | Enregistrer un pointage manuel |
+| `PATCH` | `/presences/eleves/{presence}/justifier` | Justifier une absence/retard |
+| `PATCH` | `/presences/eleves/{presence}/valider` | Valider une justification |
+| `PATCH` | `/presences/eleves/{presence}/rejeter` | Rejeter une justification |
+| `GET` | `/presences/eleves/justifications` | Liste des justifications en attente/traitées |
+| `GET` | `/presences/eleves/motifs` | Motifs de justification disponibles |
+| `GET` | `/eleves/{eleve}/presences` | Présences d'un élève |
+| `GET` | `/eleves/{eleve}/presences/historique` | Historique des présences d'un élève |
+| `GET` | `/eleves/{eleve}/presence-du-jour` | Statut de présence du jour pour un élève |
+| `POST` | `/presences/justifier` | Justification (variante générique) |
+| `POST` | `/presences/{presence}/justificatif` | Joindre un justificatif |
+
+## Terminaux de pointage
+
+| Méthode | Route | Description |
+|---|---|---|
+| `apiResource` | `/pointage/appareils` | CRUD des terminaux biométriques enregistrés |
+| `PATCH` | `/pointage/appareils/{appareil}/statut` | Activer/désactiver un terminal |
+| `POST` | `/pointage/appareils/{appareil}/regenerer-cle` | Régénérer la clé API d'un terminal |
+| `POST` | `/pointage/hikvision/{numero_serie}/{cle}` *(public)* | Webhook du terminal Hikvision |
+
+<Warning>
+  Le relais `zkteco-relay/` cible `POST /api/pointage/zkteco`, qui n'existe pas dans `routes/api.php` actuellement (seule la route Hikvision y figure). Voir [Pointage biométrique](/integrations/pointage-biometrique) pour le détail de cette intégration et le point à clarifier avec l'équipe.
+</Warning>
+
+## Logique métier
+
+La transformation des badges bruts (`pointages_eleves`) en présences qualifiées (`presences_eleves`) est assurée par `App\Services\PointagePresenceService`. Les règles de présence — heure limite, tolérance de retard, intervalle minimal entre deux badges — sont centralisées dans `config/presences.php`.
+
+La commande planifiée `presences:marquer-absences` (00:30 chaque jour) clôture la journée en marquant absent tout élève sans badge enregistré.

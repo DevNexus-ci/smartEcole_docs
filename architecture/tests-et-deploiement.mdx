@@ -1,0 +1,52 @@
+---
+title: "Tests et déploiement"
+description: "État des tests automatisés et pistes de déploiement"
+---
+
+## Tests
+
+La suite de tests est basée sur PHPUnit/Pest (`phpunit ^11.5`, `fakerphp/faker` pour les factories).
+
+| Fichier | Type | Contenu |
+|---|---|---|
+| `tests/TestCase.php` | Base | Classe de base des tests |
+| `tests/Feature/ExampleTest.php` | Feature | Test par défaut Laravel |
+| `tests/Feature/GatewaySmsServiceTest.php` | Feature | Couvre `GatewaySmsService` |
+| `tests/Unit/ExampleTest.php` | Unit | Test par défaut Laravel |
+| `tests/Unit/PhoneNumberTest.php` | Unit | Couvre `App\Support\PhoneNumber` |
+
+```bash
+php artisan test
+# ou
+./vendor/bin/phpunit
+```
+
+<Warning>
+  La couverture est actuellement limitée : les modules métier les plus critiques (élèves, paiements, bulletins, présences) n'ont pas encore de tests Feature dédiés. À prioriser avant toute évolution significative de ces modules.
+</Warning>
+
+Un script `scripts/test-presences.sh` existe pour tester manuellement le module de présences.
+
+## Environnement de développement
+
+```bash
+composer run dev
+```
+
+Cette commande lance en parallèle :
+
+- `php artisan serve` — serveur HTTP
+- `php artisan queue:listen` — worker de queue
+- `php artisan pail` — suivi des logs en temps réel
+- `npm run dev` — Vite (assets front, minimes côté backend)
+
+## Déploiement
+
+Aucun `Dockerfile` ni pipeline CI (`.github/workflows`, `.gitlab-ci.yml`) n'est présent dans le dépôt : le déploiement est pensé pour **Laravel Cloud**, qui injecte automatiquement la configuration de stockage S3 en production (voir [Stockage, monitoring et statut](/integrations/stockage-et-statut)).
+
+Points à vérifier avant un déploiement :
+
+- Variables `.env` de production (base de données MySQL, `SANCTUM_TOKEN_TTL_DAYS`, identifiants Jeko et Sinexus, `AWS_*` si hors Laravel Cloud)
+- Exécution de `php artisan migrate --force` (les migrations s'appliquent par-dessus le schéma de référence `database/schema/mysql-schema.sql`)
+- Activation du scheduler Laravel (`php artisan schedule:run` via cron, ou équivalent managé) pour les commandes planifiées listées dans [Vue d'ensemble](/architecture/vue-ensemble)
+- Déploiement séparé du relais `zkteco-relay/` si des terminaux ZKTeco F18 sont utilisés (voir [Pointage biométrique](/integrations/pointage-biometrique))

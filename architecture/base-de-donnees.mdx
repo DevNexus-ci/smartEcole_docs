@@ -1,0 +1,113 @@
+---
+title: "Base de données"
+description: "Schéma, tables principales et relations"
+---
+
+<Info>
+  Le schéma de référence des tables historiques est `database/schema/mysql-schema.sql` (52 tables), généré via `php artisan schema:dump`. Les fichiers dans `database/migrations/` (datés du 20 août au 18 septembre 2026) ne couvrent que les évolutions **postérieures** à ce dump — il n'existe donc pas de migration `create_users_table` ou équivalente pour les tables de base.
+</Info>
+
+## Tables principales et relations
+
+### Identité et établissements
+
+| Table | Champs clés | Relations |
+|---|---|---|
+| `etablissements` | nom, sigle, code, type (public/privé), ministère/direction régionale, heures de cours, personnalisation de carte scolaire (couleurs, logo, QR, pied de page) | hasMany vers la quasi-totalité des tables métier |
+| `users` | etablissement_id (nullable), matricule, nom/prénom, email/téléphone uniques, password, `role` (enum), statut actif/inactif | belongsToMany `etablissements` (pivot `etablissement_user`, multi-écoles), belongsToMany `eleves` (pivot `parents_eleves`, avec `lien_parente`), belongsToMany `matieres` (pivot `matiere_user`) |
+| `licences` | rattachées à un établissement | belongsTo `etablissements` |
+
+### Élèves et scolarité
+
+| Table | Champs clés | Relations |
+|---|---|---|
+| `eleves` | etablissement_id, matricule unique, `fiche_token` unique (QR fiche publique), `badge_pin` unique (badge pointeuse, ex-`zkteco_pin`), nom/prénom, naissance, sexe, statut (actif/inactif/exclu/diplômé), bourse_statut, lv2, dispense_sport | belongsToMany `users` (parents), belongsToMany `frais_scolaires` (frais optionnels) ; hasMany inscriptions, notes, bulletins, paiements, remises, bourses, présences, sanctions, documents |
+| `inscriptions` | eleve_id, classe_id, annee_scolaire_id, type (inscription/réinscription), statut (en_attente/validée/annulée) | belongsTo eleve, classe, année scolaire |
+| `classes` | etablissement_id, annee_scolaire_id, niveau_id, nom, capacité, enseignant_principal_id, educateur_id, salle_id | belongsTo niveau, salle, établissement, année scolaire ; hasMany classe_matiere, inscriptions, bulletins |
+| `niveaux`, `matieres`, `classe_matiere`, `coefficients` | définition du référentiel pédagogique par niveau | `classe_matiere` lie classe + matière + enseignant ; `coefficients` lie niveau + matière |
+| `annees_scolaires`, `sessions_scolaires` | cadre temporel | hasMany classes, inscriptions |
+| `batiments`, `salles` | infrastructure | `salles` belongsTo `batiments` |
+| `eleve_documents` | documents administratifs d'un élève | belongsTo eleve |
+
+### Pédagogie
+
+| Table | Champs clés | Relations |
+|---|---|---|
+| `evaluations` | rattachées à `classe_matiere` | hasMany `notes` |
+| `notes` | evaluation_id, eleve_id, note, appréciation — unique par (évaluation, élève) | belongsTo evaluation, eleve |
+| `moyennes` | moyennes calculées par élève/matière | belongsTo eleve, classe_matiere |
+| `bulletins` | eleve_id, classe_id, annee_scolaire_id, trimestre, type (trimestriel/annuel), moyennes générale/classe/forte/faible/T1-T3, rang(s), mention, décision, fichier PDF, statut (brouillon/validé) | hasMany `bulletin_lignes` ; belongsTo valideur (`users`) |
+| `devoirs_maison`, `cahiers_texte` | suivi pédagogique par classe_matiere | belongsTo classe_matiere |
+
+### Finances
+
+| Table | Champs clés | Relations |
+|---|---|---|
+| `frais_scolaires` | etablissement_id, montant, `type` (inscription, scolarité, cantine, transport, autre), obligatoire, libellé | belongsToMany niveaux, élèves (frais optionnels) ; hasMany échéanciers |
+| `echeanciers` | frais_scolaire_id, libellé, montant, date d'échéance | hasMany paiements, `echeancier_eleve` (overrides par élève) |
+| `echeancier_eleve` | override d'un échéancier pour un élève donné (montant/date personnalisés) | belongsTo échéancier, eleve, année scolaire |
+| `paiements` | eleve_id, echeancier_id, montant, `mode_paiement` (especes, wave, orange_money, mtn_money, moov_money, virement, chèque), reference_transaction, `statut` (en_attente, confirmé, échoué, remboursé), `recu_numero` unique, encaissé_par, date_paiement, + champs gateway (téléphone payeur, PDF du reçu, groupe) | belongsTo eleve, échéancier, echeancier_eleve, frais_scolaire, encaisseur, groupe de paiement |
+| `paiement_groupes` | regroupe plusieurs paiements (ex. paiement multi-échéances en une transaction) | hasMany paiements |
+| `depenses` | dépenses de l'établissement | belongsTo établissement, saisisseur |
+| `remises`, `bourses` | réductions et bourses par élève/année | belongsTo eleve, année scolaire, frais_scolaire |
+| `parametres_paiement_mobile` | configuration de la passerelle mobile money (logo, identifiants) | — |
+
+### Présences et pointage
+
+| Table | Champs clés | Relations |
+|---|---|---|
+| `pointage_appareils` | terminaux biométriques enregistrés (numéro de série, clé API) | hasMany `pointages_eleves` |
+| `pointages_eleves` | badges bruts reçus des terminaux | belongsTo appareil, eleve |
+| `presences_eleves` | présence/absence/retard, avec workflow de justification et validation | belongsTo eleve, classe_matiere, saisisseur, valideur |
+| `presences_personnel` | pointage du personnel | belongsTo user, pointeur |
+
+### Communication et vie scolaire
+
+| Table | Champs clés | Relations |
+|---|---|---|
+| `communications`, `communications_destinataires` | communications ciblées | belongsTo établissement, expéditeur ; hasMany destinataires |
+| `messages_prives` | messagerie interne | belongsTo expéditeur, destinataire |
+| `evenements`, `evenement_medias` (via migrations) | événements d'établissement avec médias et ciblage | belongsTo établissement, créateur ; hasMany médias |
+| `incidents`, `incident_updates` | suivi des incidents (lié à la page `/status`) | hasMany updates ; belongsTo auteur |
+| `reunions`, `sanctions`, `attestations_certificats` | vie scolaire complémentaire | belongsTo eleve / établissement |
+
+### Boutique, cantine, transport
+
+| Table | Champs clés | Relations |
+|---|---|---|
+| `categories_boutique`, `boutique_articles` | catalogue de la boutique scolaire | belongsToMany niveaux ; belongsTo catégorie, créateur |
+| `boutique_commandes`, `boutique_commande_lignes`, `boutique_commande_paiements` | commandes et leur règlement | belongsTo eleve, parent, établissement |
+| `boutique_paniers`, `boutique_panier_lignes` | panier d'achat côté parent | belongsTo eleve, parent |
+| `cantine_menus`, `cantine_menu_jours` | menus de cantine par jour | hasMany jours |
+| `transport_trajets` | trajets de transport scolaire, rattachés à un frais_scolaire | hasMany frais_scolaires |
+
+### Système
+
+`cache`, `cache_locks`, `jobs`, `job_batches`, `failed_jobs`, `sessions`, `migrations`, `password_reset_tokens`, `personal_access_tokens` (tokens Sanctum), `login_otps`, `phone_login_otps`, `logs_connexions`, `uptime_checks` — tables techniques standard de Laravel plus le suivi d'OTP, de connexions et de disponibilité (`/status`).
+
+## Chronologie des migrations incrémentales
+
+Les migrations dans `database/migrations/` (au-delà du dump initial) ont ajouté, dans l'ordre :
+
+1. **Communications** (20 août)
+2. **Suivi de disponibilité** : `uptime_checks`, `incidents`, `incident_updates` (3 septembre)
+3. **Workflow de présences** : justification et validation des absences/retards (3-4 septembre)
+4. **Multi-établissement** : table pivot `etablissement_user` (7 septembre)
+5. **Paiements liés aux échéanciers élève** : colonne `echeancier_eleve_id` (9 septembre)
+6. **Événements** : tables, ciblage, date de fin (10-14 septembre)
+7. **Boutique scolaire** : tables, commandes, panier (11 et 15 septembre)
+8. **Cantine** : `cantine_menus` (11 septembre)
+9. **Transport** : tables (11 septembre), alignement sur `frais_scolaires` (15 septembre)
+10. **Paiements avancés** : champs gateway, téléphone payeur, `parametres_paiement_mobile`, `frais_scolaire_id`, `recu_pdf_path`, `paiement_groupes` (15-16 septembre)
+11. **Renommage** `zkteco_pin` → `badge_pin` sur `eleves` (17 septembre)
+12. **`eleve_documents`** (18 septembre)
+
+## Seeders et factories
+
+| Fichier | Rôle |
+|---|---|
+| `database/seeders/DatabaseSeeder.php` | Point d'entrée du seed |
+| `database/seeders/SuperAdminSeeder.php` | Crée le compte super administrateur depuis les variables `.env` |
+| `database/seeders/DemoBulletinSeeder.php` | Données de démonstration pour les bulletins |
+| `database/seeders/PointageDemoSeeder.php` | Données de démonstration pour le pointage |
+| `database/factories/{Eleve,Etablissement,PointageAppareil,User}Factory.php` | Factories pour les tests |

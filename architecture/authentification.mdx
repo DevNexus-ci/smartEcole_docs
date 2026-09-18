@@ -1,0 +1,87 @@
+---
+title: "Authentification et autorisation"
+description: "Sanctum, OTP, rôles et multi-établissement"
+---
+
+## Authentification par token (Sanctum)
+
+L'API utilise [Laravel Sanctum](https://laravel.com/docs/sanctum) pour émettre des tokens d'API. Le guard configuré est `web` (`config/sanctum.php`), et la durée de vie des tokens est pilotée par `SANCTUM_TOKEN_TTL_DAYS` dans `.env`.
+
+Toutes les routes sous `/api/*` renvoient des réponses JSON — y compris les erreurs d'authentification (401 propre au lieu d'une redirection HTML), configuré dans `bootstrap/app.php`.
+
+## Flux de connexion
+
+`AuthController` (`app/Http/Controllers/Api/AuthController.php`) expose deux flux équivalents, l'un par email, l'autre par téléphone :
+
+<Tabs>
+  <Tab title="Par email">
+    1. `POST /api/auth/login` — email + mot de passe → envoie un code OTP par email
+    2. `POST /api/auth/verify-otp` — valide le code et renvoie le token Sanctum
+    3. `POST /api/auth/resend-otp` — renvoie un nouveau code si besoin
+  </Tab>
+  <Tab title="Par téléphone">
+    1. `POST /api/auth/login-phone` — numéro de téléphone → envoie un code OTP par SMS (Sinexus)
+    2. `POST /api/auth/verify-otp-phone` — valide le code et renvoie le token Sanctum
+    3. `POST /api/auth/resend-otp-phone` — renvoie un nouveau code
+  </Tab>
+</Tabs>
+
+Ces routes publiques sont soumises à un throttle (6 à 10 requêtes/min selon l'endpoint) pour limiter les abus.
+
+Une fois authentifié, transmettez le token dans l'en-tête :
+
+```
+Authorization: Bearer <token>
+```
+
+### Gestion de session
+
+| Endpoint | Rôle |
+|---|---|
+| `POST /api/auth/refresh` | Renouvelle le token courant |
+| `POST /api/auth/logout` | Révoque le token courant |
+| `POST /api/auth/logout-all` | Révoque tous les tokens de l'utilisateur |
+| `POST /api/auth/logout-others` | Révoque tous les tokens sauf le courant |
+| `GET /api/auth/tokens` | Liste les tokens actifs |
+| `DELETE /api/auth/tokens/{tokenId}` | Révoque un token spécifique |
+| `GET /api/auth/getme` | Retourne l'utilisateur authentifié |
+
+## Rôles et autorisation
+
+Le projet n'utilise pas les Policies Laravel : l'autorisation métier repose sur le middleware custom `role:` (`app/Http/Middleware/CheckRole.php`), appliqué route par route.
+
+```php
+Route::middleware('role:super_admin,admin')->group(function () {
+    // ...
+});
+```
+
+Ce middleware vérifie deux choses :
+1. Que `$request->user()->role` fait partie de la liste passée en paramètre.
+2. Que le token Sanctum courant n'exclut pas explicitement ce rôle (`$token->cant($role)`), pour permettre à terme des tokens à portée restreinte.
+
+### Rôles disponibles
+
+| Rôle | Description |
+|---|---|
+| `super_admin` | Administrateur de la plateforme, gère tous les établissements |
+| `admin` | Administrateur d'un établissement |
+| `directeur` | Direction d'établissement |
+| `secretariat` | Personnel administratif |
+| `comptable` | Gestion financière |
+| `enseignant` | Personnel enseignant |
+| `surveillant` | Personnel de surveillance / vie scolaire |
+| `parent` | Parent ou tuteur d'élève(s) |
+| `eleve` | Élève |
+
+## Multi-établissement
+
+Une même instance peut servir plusieurs établissements. Le middleware `etablissement.courant` (`SetCurrentEtablissement`) détermine l'établissement courant :
+
+- Il lit l'en-tête `X-Etablissement-Id`, envoyé par le frontend à partir d'un cookie.
+- Pour un `super_admin` (qui n'appartient à aucun établissement en propre) ou un utilisateur rattaché à plusieurs écoles (table pivot `etablissement_user`), c'est cet en-tête qui détermine le contexte de la requête.
+- L'établissement résolu est posé en mémoire sur le modèle `User` (`etablissement_id`) et sert de scope implicite dans les contrôleurs.
+
+<Note>
+  Sur les routes protégées, appliquez systématiquement les deux middlewares ensemble : `auth:sanctum` puis `etablissement.courant`.
+</Note>
